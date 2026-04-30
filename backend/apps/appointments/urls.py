@@ -1,7 +1,35 @@
 from django.urls import path
 
-from .views import AppointmentCreateView
+from .views import (
+    AppointmentAcceptView,
+    AppointmentCancelView,
+    AppointmentCompleteView,
+    AppointmentDetailView,
+    AppointmentListCreateView,
+    AppointmentRejectView,
+    AvailableSlotsView,
+    ClientAppointmentListView,
+    ExpiredPendingCancellationView,
+    MedicalFileListCreateView,
+    MessageListCreateView,
+    SurgeryApprovalView,
+    SurgeryRoomListView,
+    VeterinarianAppointmentListView,
+)
 
 urlpatterns = [
-    path('', AppointmentCreateView.as_view(), name='appointment-create'),
+    path('', AppointmentListCreateView.as_view(), name='appointment-list-create'),
+    path('available-slots/', AvailableSlotsView.as_view(), name='available-slots'),
+    path('client/', ClientAppointmentListView.as_view(), name='client-appointments'),
+    path('veterinarian/', VeterinarianAppointmentListView.as_view(), name='veterinarian-appointments'),
+    path('cancel-expired/', ExpiredPendingCancellationView.as_view(), name='appointment-cancel-expired'),
+    path('surgery-rooms/', SurgeryRoomListView.as_view(), name='surgery-room-list'),
+    path('<int:pk>/', AppointmentDetailView.as_view(), name='appointment-detail'),
+    path('<int:pk>/accept/', AppointmentAcceptView.as_view(), name='appointment-accept'),
+    path('<int:pk>/reject/', AppointmentRejectView.as_view(), name='appointment-reject'),
+    path('<int:pk>/cancel/', AppointmentCancelView.as_view(), name='appointment-cancel'),
+    path('<int:pk>/complete/', AppointmentCompleteView.as_view(), name='appointment-complete'),
+    path('<int:pk>/approve-surgery/', SurgeryApprovalView.as_view(), name='appointment-approve-surgery'),
+    path('<int:appointment_id>/messages/', MessageListCreateView.as_view(), name='appointment-messages'),
+    path('<int:appointment_id>/files/', MedicalFileListCreateView.as_view(), name='appointment-files'),
 ]
