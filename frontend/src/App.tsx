@@ -3,6 +3,8 @@ import { AppShell } from './components/AppShell';
 import { AuthPage } from './pages/Auth/AuthPage';
 import { AppointmentDetailPage } from './pages/AppointmentDetail/AppointmentDetailPage';
 import { AppointmentsPage } from './pages/Appointments/AppointmentsPage';
+import { CheckAppointmentPage } from './pages/CheckAppointment/CheckAppointmentPage';
+import { ProfilesPage } from './pages/Profiles/ProfilesPage';
 import { ReserveAppointmentPage } from './pages/ReserveAppointment/ReserveAppointmentPage';
 import { useAuth } from './hooks/useAuth';
 
@@ -33,21 +35,14 @@ export default function App() {
         <Route path="/" element={<AppointmentsPage user={auth.user} />} />
         <Route path="/appointments" element={<AppointmentsPage user={auth.user} />} />
         <Route path="/appointments/:id" element={<AppointmentDetailPage user={auth.user} />} />
+        <Route path="/profiles" element={<ProfilesPage user={auth.user} onUserUpdated={auth.reloadUser} />} />
         <Route path="/reserve" element={<ReserveAppointmentPage user={auth.user} />} />
-        <Route path="/check-appointment" element={<PlaceholderPage title="Consulta de Hora" />} />
-        <Route path="/cancel-appointment" element={<PlaceholderPage title="Anular hora" />} />
-        <Route path="/change-appointment" element={<PlaceholderPage title="Cambiar Hora" />} />
+        <Route path="/check-appointment" element={<CheckAppointmentPage user={auth.user} />} />
+        <Route path="/cancel-appointment" element={<Navigate replace to="/check-appointment" />} />
+        <Route path="/change-appointment" element={<Navigate replace to="/check-appointment" />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>
   );
 }
 
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <section className="rounded-md border border-slate-200 bg-white p-6 shadow-soft">
-      <h1 className="text-2xl font-semibold text-ink">{title}</h1>
-      <p className="mt-2 text-sm text-slate-500">Modulo pendiente para la siguiente iteracion.</p>
-    </section>
-  );
-}

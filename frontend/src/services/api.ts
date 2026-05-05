@@ -2,6 +2,7 @@ import axios from 'axios';
 import type {
   Appointment,
   AppointmentCreatePayload,
+  AppointmentListParams,
   AuthTokens,
   MedicalFile,
   Message,
@@ -60,6 +61,11 @@ export async function getCurrentUser(): Promise<User> {
   return response.data;
 }
 
+export async function patchCurrentUser(payload: { name: string }): Promise<User> {
+  const response = await api.patch<User>('/users/me/', payload);
+  return response.data;
+}
+
 export async function getVeterinarians(): Promise<User[]> {
   const response = await api.get<User[]>('/users/veterinarians/');
   return response.data;
@@ -75,9 +81,29 @@ export async function getSurgeryRooms(): Promise<SurgeryRoom[]> {
   return response.data;
 }
 
-export async function getAppointments(role: User['role']): Promise<Appointment[]> {
-  const url = role === 'veterinarian' ? '/appointments/veterinarian/' : '/appointments/client/';
-  const response = await api.get<Appointment[]>(url);
+function compactParams(params?: AppointmentListParams): Record<string, string> | undefined {
+  if (!params) return undefined;
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      out[key] = value;
+    }
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+export async function getAppointments(
+  role: User['role'],
+  params?: AppointmentListParams,
+): Promise<Appointment[]> {
+  const query = compactParams(params);
+  const url =
+    role === 'veterinarian'
+      ? '/appointments/veterinarian/'
+      : role === 'client'
+        ? '/appointments/client/'
+        : '/appointments/';
+  const response = await api.get<Appointment[]>(url, query ? { params: query } : undefined);
   return response.data;
 }
 
@@ -99,6 +125,9 @@ export async function createAppointment(payload: AppointmentCreatePayload): Prom
   if (payload.referral_file) {
     formData.append('referral_file', payload.referral_file);
   }
+  if (payload.pet_name) {
+    formData.append('pet_name', payload.pet_name);
+  }
 
   const response = await api.post<Appointment>('/appointments/', formData);
   return response.data;
@@ -109,6 +138,20 @@ export async function updateAppointmentStatus(
   action: 'accept' | 'reject' | 'cancel' | 'complete',
 ): Promise<Appointment> {
   const response = await api.post<Appointment>(`/appointments/${id}/${action}/`);
+  return response.data;
+}
+
+export async function patchAppointment(
+  id: number,
+  payload: {
+    messaging_enabled?: boolean;
+    client_case_notes?: string;
+    date?: string;
+    time?: string;
+    pet_name?: string;
+  },
+): Promise<Appointment> {
+  const response = await api.patch<Appointment>(`/appointments/${id}/`, payload);
   return response.data;
 }
 

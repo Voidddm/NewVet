@@ -58,6 +58,11 @@ export interface Appointment {
   id: number;
   client: number;
   veterinarian: number;
+  /** Presente en respuestas de listado y detalle cuando el backend lo incluye. */
+  client_name?: string;
+  veterinarian_name?: string;
+  /** Nombre de mascota indicado al reservar o editado por el tutor. */
+  pet_name?: string;
   service: number;
   date: string;
   time: string;
@@ -66,13 +71,17 @@ export interface Appointment {
   surgery_room: number | null;
   referral_file: string | null;
   is_surgery_approved: boolean;
+  messaging_enabled: boolean;
+  client_case_notes: string;
   created_at: string;
   accepted_at: string | null;
   expires_at: string | null;
   cancelled_at: string | null;
   completed_at: string | null;
-  medical_files: MedicalFile[];
-  messages: Message[];
+  /** En listados resumidos; en detalle vienen los archivos completos. */
+  medical_files_count?: number;
+  medical_files?: MedicalFile[];
+  messages?: Message[];
 }
 
 export interface AppointmentCreatePayload {
@@ -83,6 +92,17 @@ export interface AppointmentCreatePayload {
   mode: AppointmentMode;
   surgery_room?: number;
   referral_file?: File;
+  pet_name?: string;
+}
+
+/** Query params soportados por GET /appointments/client/ y /veterinarian/ */
+export interface AppointmentListParams {
+  date?: string;
+  date_from?: string;
+  date_to?: string;
+  status?: string;
+  search?: string;
+  ordering?: string;
 }
 
 export interface AuthTokens {

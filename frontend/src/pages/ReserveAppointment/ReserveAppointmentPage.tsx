@@ -1,8 +1,7 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { ReactNode } from 'react';
 import {
   Bone,
-  CalendarDays,
   ChevronRight,
   ClipboardList,
   Home,
@@ -13,6 +12,8 @@ import {
   Syringe,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { breedsForSpecies } from '../../data/petBreeds';
+import { formatPetAge, loadPets, makePetId, type PetProfile, savePets, type AgeUnit } from '../../pets/storage';
 import {
   createAppointment,
   getServices,
@@ -26,17 +27,18 @@ interface ReserveAppointmentPageProps {
   user: User;
 }
 
-interface PetProfile {
-  id: string;
+type SearchMode = 'specialty' | 'professional';
+
+type PendingSlot = { veterinarianId: number; veterinarianName: string; time: string };
+
+type PetFormState = {
   name: string;
   species: string;
   breed: string;
-  age: string;
-}
-
-type SearchMode = 'specialty' | 'professional';
-
-const STORAGE_KEY = 'newvet.pets';
+  ageAmount: string;
+  ageUnit: AgeUnit;
+  avatarDataUrl?: string;
+};
 
 const serviceCards: Array<{
   mode: AppointmentMode;
@@ -78,7 +80,14 @@ export function ReserveAppointmentPage({ user }: ReserveAppointmentPageProps) {
   const [step, setStep] = useState(1);
   const [pets, setPets] = useState<PetProfile[]>(() => loadPets());
   const [selectedPetId, setSelectedPetId] = useState('');
-  const [petForm, setPetForm] = useState({ name: '', species: 'Perro', breed: '', age: '' });
+  const [petForm, setPetForm] = useState<PetFormState>({
+    name: '',
+    species: 'Perro',
+    breed: breedsForSpecies('Perro')[0] ?? '',
+    ageAmount: '',
+    ageUnit: 'years',
+  });
+  const [pendingSlot, setPendingSlot] = useState<PendingSlot | null>(null);
   const [mode, setMode] = useState<AppointmentMode | ''>('');
   const [serviceId, setServiceId] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('specialty');
@@ -128,13 +137,21 @@ export function ReserveAppointmentPage({ user }: ReserveAppointmentPageProps) {
       name: petForm.name,
       species: petForm.species,
       breed: petForm.breed,
-      age: petForm.age,
+      ageAmount: petForm.ageAmount,
+      ageUnit: petForm.ageUnit,
+      avatarDataUrl: petForm.avatarDataUrl,
     };
     const nextPets = [...pets, pet];
     setPets(nextPets);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextPets));
+    savePets(nextPets);
     setSelectedPetId(pet.id);
-    setPetForm({ name: '', species: 'Perro', breed: '', age: '' });
+    setPetForm({
+      name: '',
+      species: 'Perro',
+      breed: breedsForSpecies('Perro')[0] ?? '',
+      ageAmount: '',
+      ageUnit: 'years',
+    });
   }
 
   function selectMode(nextMode: AppointmentMode) {
@@ -147,6 +164,7 @@ export function ReserveAppointmentPage({ user }: ReserveAppointmentPageProps) {
     setSubmitting(true);
     setError(null);
     try {
+      const pet = pets.find((p) => p.id === selectedPetId);
       const appointment = await createAppointment({
         veterinarian: veterinarianId,
         service: Number(serviceId),
@@ -154,7 +172,9 @@ export function ReserveAppointmentPage({ user }: ReserveAppointmentPageProps) {
         time,
         mode,
         surgery_room: mode === 'surgery' ? surgeryRooms[0]?.id : undefined,
+        pet_name: pet?.name ?? '',
       });
+      setPendingSlot(null);
       navigate(`/appointments/${appointment.id}`);
     } catch {
       setError('No se pudo reservar esa hora.');
@@ -169,7 +189,9 @@ export function ReserveAppointmentPage({ user }: ReserveAppointmentPageProps) {
         <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-ink">Reserva de hora</h1>
-            <p className="text-sm text-slate-500">Completa los pasos para encontrar una hora disponible.</p>
+            <p className="text-sm text-slate-500">
+              Completa los pasos para encontrar una hora disponible. Sesión como {user.name}.
+            </p>
           </div>
           <span className="rounded-md bg-teal-50 px-3 py-1 text-sm font-semibold text-teal">
             Paso {step} de 4
@@ -220,14 +242,52 @@ export function ReserveAppointmentPage({ user }: ReserveAppointmentPageProps) {
                 professionals={professionals}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
+                setPendingSlot={setPendingSlot}
                 setVisibleDays={setVisibleDays}
                 submitting={submitting}
                 visibleDays={visibleDays}
-                onReserve={reserveSlot}
               />
             )}
           </div>
         </div>
+
+        {pendingSlot && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation">
+            <div
+              className="w-full max-w-md rounded-md border border-slate-200 bg-white p-5 shadow-lg"
+              role="dialog"
+              aria-labelledby="confirm-reserva-title"
+              aria-modal="true"
+            >
+              <h2 className="text-lg font-semibold text-ink" id="confirm-reserva-title">
+                Confirmar reserva
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Vas a solicitar una cita con <span className="font-semibold text-ink">{pendingSlot.veterinarianName}</span>{' '}
+                el <span className="font-semibold text-ink">{formatDate(selectedDate)}</span> a las{' '}
+                <span className="font-semibold text-ink">{pendingSlot.time}</span>. La cita quedara pendiente hasta que el
+                profesional la acepte.
+              </p>
+              <div className="mt-5 flex flex-wrap justify-end gap-2">
+                <button
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+                  onClick={() => setPendingSlot(null)}
+                  type="button"
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="rounded-md bg-teal px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+                  disabled={submitting}
+                  onClick={() => void reserveSlot(pendingSlot.veterinarianId, pendingSlot.time)}
+                  type="button"
+                >
+                  Confirmar reserva
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mt-5 flex items-center justify-between">
           <button
@@ -285,8 +345,8 @@ function PatientStep({
   pets: PetProfile[];
   selectedPetId: string;
   setSelectedPetId: (id: string) => void;
-  petForm: { name: string; species: string; breed: string; age: string };
-  setPetForm: (value: { name: string; species: string; breed: string; age: string }) => void;
+  petForm: PetFormState;
+  setPetForm: Dispatch<SetStateAction<PetFormState>>;
   onSavePet: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
@@ -308,11 +368,20 @@ function PatientStep({
                 onClick={() => setSelectedPetId(pet.id)}
                 type="button"
               >
-                <div className="mb-3 grid h-10 w-10 place-items-center rounded-md bg-slate-100 text-teal">
-                  <Bone size={20} aria-hidden="true" />
+                <div className="mb-3 h-10 w-10 overflow-hidden rounded-md bg-slate-100 text-teal">
+                  {pet.avatarDataUrl ? (
+                    <img alt="" className="h-full w-full object-cover" src={pet.avatarDataUrl} />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center">
+                      <Bone size={20} aria-hidden="true" />
+                    </div>
+                  )}
                 </div>
                 <p className="font-semibold text-ink">{pet.name}</p>
-                <p className="mt-1 text-sm text-slate-500">{pet.species} · {pet.breed || 'Sin raza'} · {pet.age || 'Edad no indicada'}</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {pet.species} · {pet.breed || 'Sin raza'}
+                  {formatPetAge(pet) ? ` · ${formatPetAge(pet)}` : ' · Edad no indicada'}
+                </p>
               </button>
             ))}
           </div>
@@ -323,14 +392,69 @@ function PatientStep({
           <Plus size={18} className="text-teal" aria-hidden="true" />
           <p className="font-semibold text-ink">Agregar mascota</p>
         </div>
+        <label className="mb-3 block text-sm font-medium text-slate-700">
+          Foto de la mascota (opcional)
+          <input
+            accept="image/*"
+            className="mt-2 block w-full text-sm text-slate-600"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (!file || !file.type.startsWith('image/')) {
+                setPetForm({ ...petForm, avatarDataUrl: undefined });
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => {
+                const r = reader.result;
+                if (typeof r === 'string') {
+                  if (r.length > 350_000) {
+                    window.alert('La imagen es demasiado grande. Prueba con un archivo mas pequeño.');
+                    return;
+                  }
+                  setPetForm((f: PetFormState) => ({ ...f, avatarDataUrl: r }));
+                }
+              };
+              reader.readAsDataURL(file);
+            }}
+            type="file"
+          />
+        </label>
+        {petForm.avatarDataUrl && (
+          <div className="mb-3">
+            <img alt="" className="h-14 w-14 rounded-md object-cover ring-1 ring-slate-200" src={petForm.avatarDataUrl} />
+          </div>
+        )}
         <Input label="Nombre" onChange={(name) => setPetForm({ ...petForm, name })} required value={petForm.name} />
-        <SelectValue label="Especie" onChange={(species) => setPetForm({ ...petForm, species })} value={petForm.species}>
+        <SelectValue
+          label="Especie"
+          onChange={(species) =>
+            setPetForm({
+              ...petForm,
+              species,
+              breed: breedsForSpecies(species)[0] ?? '',
+            })
+          }
+          value={petForm.species}
+        >
           <option value="Perro">Perro</option>
           <option value="Gato">Gato</option>
           <option value="Exotico">Exotico</option>
         </SelectValue>
-        <Input label="Raza" onChange={(breed) => setPetForm({ ...petForm, breed })} value={petForm.breed} />
-        <Input label="Edad" onChange={(age) => setPetForm({ ...petForm, age })} value={petForm.age} />
+        <SelectValue label="Raza" onChange={(breed) => setPetForm({ ...petForm, breed })} value={petForm.breed}>
+          {breedsForSpecies(petForm.species).map((b) => (
+            <option key={b} value={b}>
+              {b}
+            </option>
+          ))}
+        </SelectValue>
+        <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_140px] sm:items-end">
+          <Input label="Edad (cantidad)" onChange={(ageAmount) => setPetForm({ ...petForm, ageAmount })} value={petForm.ageAmount} />
+          <SelectValue label="Unidad" onChange={(ageUnit) => setPetForm({ ...petForm, ageUnit: ageUnit as AgeUnit })} value={petForm.ageUnit}>
+            <option value="weeks">Semanas</option>
+            <option value="months">Meses</option>
+            <option value="years">Años</option>
+          </SelectValue>
+        </div>
         <button className="mt-2 h-10 w-full rounded-md border border-teal px-4 text-sm font-semibold text-teal" type="submit">
           Guardar mascota
         </button>
@@ -445,10 +569,6 @@ function SearchStep({
           {veterinarians.map((vet) => <option key={vet.id} value={vet.id}>{vet.name}</option>)}
         </SelectValue>
       )}
-      <button className="inline-flex h-10 items-center gap-2 rounded-md bg-teal px-4 text-sm font-semibold text-white" type="button">
-        <Search size={17} aria-hidden="true" />
-        Buscar hora
-      </button>
     </div>
   );
 }
@@ -459,20 +579,20 @@ function AvailabilityStep({
   selectedDate,
   setSelectedDate,
   setVisibleDays,
+  setPendingSlot,
   professionals,
   submitting,
   error,
-  onReserve,
 }: {
   days: Date[];
   visibleDays: number;
   selectedDate: string;
   setSelectedDate: (date: string) => void;
   setVisibleDays: (count: number) => void;
+  setPendingSlot: (slot: PendingSlot | null) => void;
   professionals: User[];
   submitting: boolean;
   error: string | null;
-  onReserve: (vetId: number, time: string) => Promise<void>;
 }) {
   const hours = ['09:00', '10:00', '11:00', '14:00', '15:00'];
 
@@ -524,7 +644,9 @@ function AvailabilityStep({
                   className="rounded-md border border-slate-200 px-2 py-2 text-sm font-semibold text-teal hover:border-teal disabled:opacity-50"
                   disabled={submitting || (index + hourIndex) % 5 === 0}
                   key={`${vet.id}-${hour}`}
-                  onClick={() => void onReserve(vet.id, hour)}
+                  onClick={() =>
+                    setPendingSlot({ veterinarianId: vet.id, veterinarianName: vet.name, time: hour })
+                  }
                   type="button"
                 >
                   {hour}
@@ -585,23 +707,6 @@ function SelectValue({
       </select>
     </label>
   );
-}
-
-function makePetId(): string {
-  if ('randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-  return `pet-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function loadPets(): PetProfile[] {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) return [];
-  try {
-    return JSON.parse(stored) as PetProfile[];
-  } catch {
-    return [];
-  }
 }
 
 function stepTitle(step: number): string {

@@ -59,6 +59,21 @@ class Appointment(models.Model):
         blank=True,
     )
     is_surgery_approved = models.BooleanField(default=False)
+    messaging_enabled = models.BooleanField(
+        default=False,
+        help_text='El veterinario habilita el chat con el tutor para esta cita.',
+    )
+    client_case_notes = models.TextField(
+        blank=True,
+        default='',
+        help_text='Notas del tutor sobre la mascota o el caso.',
+    )
+    pet_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text='Nombre de la mascota asociada a la reserva.',
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     accepted_at = models.DateTimeField(null=True, blank=True)

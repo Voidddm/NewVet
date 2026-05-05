@@ -60,6 +60,20 @@ class AppointmentClinicalFlowTests(APITestCase):
         self.assertEqual(appointment.status, Appointment.Status.ACCEPTED)
         self.assertIsNotNone(appointment.accepted_at)
 
+        blocked_message = self.client.post(reverse('appointment-messages', args=[appointment.id]), {
+            'content': 'Ya revise los antecedentes clinicos.',
+        })
+        self.assertEqual(blocked_message.status_code, status.HTTP_400_BAD_REQUEST)
+
+        enable_chat = self.client.patch(
+            reverse('appointment-detail', args=[appointment.id]),
+            {'messaging_enabled': True},
+            format='json',
+        )
+        self.assertEqual(enable_chat.status_code, status.HTTP_200_OK)
+        appointment.refresh_from_db()
+        self.assertTrue(appointment.messaging_enabled)
+
         message_response = self.client.post(reverse('appointment-messages', args=[appointment.id]), {
             'content': 'Ya revise los antecedentes clinicos.',
         })

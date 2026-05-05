@@ -1,4 +1,4 @@
-import { CalendarDays, CalendarPlus, Clock, LogOut, RotateCcw, Stethoscope, XCircle } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Clock, LogOut, RotateCcw, Stethoscope, UserRound, XCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import type { User } from '../types';
@@ -25,6 +25,7 @@ export function AppShell({ user, onLogout, children }: AppShellProps) {
           </div>
           <nav className="flex max-w-full items-center gap-1 overflow-x-auto">
             <ShellLink icon={<CalendarDays size={18} aria-hidden="true" />} label="Inicio" to="/" />
+            <ShellLink icon={<UserRound size={18} aria-hidden="true" />} label="Perfil y mascotas" to="/profiles" />
             {user.role === 'client' && (
               <ShellLink icon={<CalendarPlus size={18} aria-hidden="true" />} label="Reservar hora" to="/reserve" />
             )}

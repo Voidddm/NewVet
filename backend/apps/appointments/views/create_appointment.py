@@ -1,5 +1,5 @@
 from django.db import IntegrityError
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -10,10 +10,12 @@ from ..models import Appointment, MedicalFile, Message, SurgeryRoom
 from ..serializers import (
     AppointmentCreateSerializer,
     AppointmentSerializer,
+    AppointmentSummarySerializer,
     MedicalFileSerializer,
     MessageSerializer,
     SurgeryRoomSerializer,
 )
+from .appointment_filters import apply_appointment_list_filters
 
 
 class AppointmentListCreateView(generics.ListCreateAPIView):
@@ -38,32 +40,45 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
 
 
 class ClientAppointmentListView(generics.ListAPIView):
-    serializer_class = AppointmentSerializer
+    serializer_class = AppointmentSummarySerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Appointment.objects.filter(
+        qs = Appointment.objects.filter(
             client=self.request.user
-        ).select_related('client', 'veterinarian', 'service', 'surgery_room')
+        ).select_related('client', 'veterinarian', 'service', 'surgery_room').annotate(
+            file_count=Count('medical_files')
+        )
+        return apply_appointment_list_filters(qs, self.request)
 
 
 class VeterinarianAppointmentListView(generics.ListAPIView):
-    serializer_class = AppointmentSerializer
+    serializer_class = AppointmentSummarySerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Appointment.objects.filter(
+        qs = Appointment.objects.filter(
             veterinarian=self.request.user
-        ).select_related('client', 'veterinarian', 'service', 'surgery_room')
+        ).select_related('client', 'veterinarian', 'service', 'surgery_room').annotate(
+            file_count=Count('medical_files')
+        )
+        return apply_appointment_list_filters(qs, self.request)
 
 
-class AppointmentDetailView(generics.RetrieveAPIView):
+class AppointmentDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = AppointmentSerializer
     permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['get', 'head', 'options', 'patch']
 
     def get_queryset(self):
         user = self.request.user
         return Appointment.objects.filter(Q(client=user) | Q(veterinarian=user))
+
+    def perform_update(self, serializer):
+        try:
+            serializer.save()
+        except IntegrityError as exc:
+            raise ValidationError('Ese horario ya esta ocupado para el veterinario.') from exc
 
 
 class AppointmentStatusView(APIView):
@@ -141,6 +156,10 @@ class MessageListCreateView(generics.ListCreateAPIView):
         appointment = self._get_appointment()
         if appointment.status != Appointment.Status.ACCEPTED:
             raise ValidationError('La mensajeria se habilita cuando la cita esta aceptada.')
+        if not appointment.messaging_enabled:
+            raise ValidationError(
+                'El veterinario aun no ha habilitado el chat para esta cita.'
+            )
         serializer.save(appointment=appointment, sender=self.request.user)
 
 

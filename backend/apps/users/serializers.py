@@ -9,6 +9,12 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'name', 'email', 'role', 'is_active', 'is_staff', 'created_at')
+        read_only_fields = ('id', 'email', 'role', 'is_active', 'is_staff', 'created_at')
+
+    def validate_name(self, value):
+        if not value or not str(value).strip():
+            raise serializers.ValidationError('El nombre no puede estar vacio.')
+        return str(value).strip()
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -17,6 +23,11 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'name', 'email', 'password', 'role')
+
+    def validate_name(self, value):
+        if not value or not str(value).strip():
+            raise serializers.ValidationError('El nombre no puede estar vacio.')
+        return str(value).strip()
 
     def create(self, validated_data):
         password = validated_data.pop('password')

@@ -9,10 +9,18 @@ interface ChatPanelProps {
   currentUser: User;
   messages: Message[];
   disabled: boolean;
+  inputPlaceholder?: string;
   onMessageSent: () => Promise<void>;
 }
 
-export function ChatPanel({ appointmentId, currentUser, messages, disabled, onMessageSent }: ChatPanelProps) {
+export function ChatPanel({
+  appointmentId,
+  currentUser,
+  messages,
+  disabled,
+  inputPlaceholder,
+  onMessageSent,
+}: ChatPanelProps) {
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +71,9 @@ export function ChatPanel({ appointmentId, currentUser, messages, disabled, onMe
             className="h-11 min-w-0 flex-1 rounded-md border border-slate-300 px-3 disabled:bg-slate-100"
             disabled={disabled || submitting}
             onChange={(event) => setContent(event.target.value)}
-            placeholder={disabled ? 'Disponible cuando la cita este aceptada' : 'Escribir mensaje'}
+            placeholder={
+              inputPlaceholder ?? (disabled ? 'Disponible cuando la cita este aceptada' : 'Escribir mensaje')
+            }
             required
             value={content}
           />

@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, CalendarPlus, FileText } from 'lucide-react';
+import { ArrowRight, CalendarPlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { AppointmentListRow } from '../../components/appointments/AppointmentListRow';
 import { getAppointments, getServices, getVeterinarians } from '../../services/api';
-import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import type { Appointment, Service, User } from '../../types';
-import { formatDate, modeLabel } from '../../utils/format';
 
 interface AppointmentsPageProps {
   user: User;
@@ -90,27 +89,19 @@ export function AppointmentsPage({ user }: AppointmentsPageProps) {
               {latestAppointments.map((appointment) => {
                 const service = servicesById.get(appointment.service);
                 const vet = vetsById.get(appointment.veterinarian);
+                const partyLabel = user.role === 'veterinarian' ? 'Cliente' : 'Veterinario';
+                const partyName =
+                  user.role === 'veterinarian'
+                    ? appointment.client_name ?? vet?.name ?? `Cliente #${appointment.client}`
+                    : appointment.veterinarian_name ?? vet?.name ?? `Vet #${appointment.veterinarian}`;
                 return (
-                  <Link
-                    className="grid gap-3 p-4 hover:bg-slate-50 sm:grid-cols-[1fr_auto]"
+                  <AppointmentListRow
+                    appointment={appointment}
                     key={appointment.id}
-                    to={`/appointments/${appointment.id}`}
-                  >
-                    <div>
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <StatusBadge status={appointment.status} />
-                        <span className="text-sm font-medium text-slate-600">{modeLabel(appointment.mode)}</span>
-                      </div>
-                      <p className="font-semibold text-ink">{service?.name ?? `Servicio #${appointment.service}`}</p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {formatDate(appointment.date)} · {appointment.time.slice(0, 5)} · {vet?.name ?? `Vet #${appointment.veterinarian}`}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <FileText size={16} aria-hidden="true" />
-                      {appointment.medical_files.length} archivos
-                    </div>
-                  </Link>
+                    partyLabel={partyLabel}
+                    partyName={partyName}
+                    serviceName={service?.name ?? `Servicio #${appointment.service}`}
+                  />
                 );
               })}
             </div>
