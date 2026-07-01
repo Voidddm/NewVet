@@ -7,6 +7,7 @@ def apply_appointment_list_filters(queryset, request):
     - date: YYYY-MM-DD (dia exacto)
     - date_from, date_to: rango inclusive
     - status: valores separados por coma (ej: pending,accepted)
+    - tipo/type: teleconsulta u online, presencial
     - search: texto libre (nombre tutor/mascota/notas segun queryset base)
     - ordering: date, -date, status, -status, client_name, -client_name,
                 veterinarian_name, -veterinarian_name
@@ -29,6 +30,16 @@ def apply_appointment_list_filters(queryset, request):
         statuses = [s.strip() for s in status_param.split(',') if s.strip()]
         if statuses:
             queryset = queryset.filter(status__in=statuses)
+
+    appointment_type = params.get('tipo') or params.get('type') or params.get('mode')
+    if appointment_type:
+        normalized = appointment_type.strip().lower()
+        if normalized in ('teleconsulta', 'online'):
+            queryset = queryset.filter(mode='online')
+        elif normalized in ('presencial', 'in_person'):
+            queryset = queryset.exclude(mode='online')
+        elif normalized in ('home', 'surgery'):
+            queryset = queryset.filter(mode=normalized)
 
     search = params.get('search')
     if search:

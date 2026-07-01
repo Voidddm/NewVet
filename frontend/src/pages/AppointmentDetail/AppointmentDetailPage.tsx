@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, MessageCircle, ShieldCheck, X } from 'lucide-react';
+import { ArrowLeft, Bone, Check, MessageCircle, ShieldCheck, Video, X } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { ChatPanel } from '../../components/Chat/ChatPanel';
 import { FileUploadPanel } from '../../components/FileUpload/FileUploadPanel';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
-import { approveSurgery, getAppointment, patchAppointment, updateAppointmentStatus } from '../../services/api';
+import {
+  approveSurgery,
+  finalizeTeleconsultation,
+  getAppointment,
+  patchAppointment,
+  startTeleconsultation,
+  updateAppointmentStatus,
+} from '../../services/api';
 import type { Appointment, User } from '../../types';
+import { petAvatar, petLabel } from '../../utils/appointmentDisplay';
 import { formatDate, modeLabel } from '../../utils/format';
 
 interface AppointmentDetailPageProps {
@@ -51,6 +59,14 @@ export function AppointmentDetailPage({ user }: AppointmentDetailPageProps) {
     setAppointment(await updateAppointmentStatus(appointmentId, action));
   }
 
+  async function handleStartTeleconsultation() {
+    setAppointment(await startTeleconsultation(appointmentId));
+  }
+
+  async function handleFinalizeTeleconsultation() {
+    setAppointment(await finalizeTeleconsultation(appointmentId));
+  }
+
   async function handleApproveSurgery() {
     setAppointment(await approveSurgery(appointmentId));
   }
@@ -91,7 +107,8 @@ export function AppointmentDetailPage({ user }: AppointmentDetailPageProps) {
   const canUpload = appointment.status === 'pending' || appointment.status === 'accepted';
   const canEditCaseNotes =
     isClient && (appointment.status === 'pending' || appointment.status === 'accepted');
-  const chatActive = appointment.status === 'accepted' && appointment.messaging_enabled;
+  const chatActive =
+    (appointment.status === 'accepted' || appointment.status === 'in_progress') && appointment.messaging_enabled;
   const chatPlaceholder =
     appointment.status !== 'accepted'
       ? undefined
@@ -110,7 +127,7 @@ export function AppointmentDetailPage({ user }: AppointmentDetailPageProps) {
 
       <section className="rounded-md border border-slate-200 bg-white p-5 shadow-soft">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-          <div>
+          <div className="min-w-0">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <StatusBadge status={appointment.status} />
               <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
@@ -125,8 +142,21 @@ export function AppointmentDetailPage({ user }: AppointmentDetailPageProps) {
             </div>
             <h1 className="text-2xl font-semibold text-ink">Cita #{appointment.id}</h1>
             <p className="mt-1 text-sm text-slate-500">
-              {formatDate(appointment.date)} · {appointment.time.slice(0, 5)}
+              {formatDate(appointment.date)} - {appointment.time.slice(0, 5)}
             </p>
+            <div className="mt-4 flex items-center gap-3 rounded-md border border-slate-100 bg-mist/60 p-3">
+              <span className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-md bg-white text-teal ring-1 ring-slate-200">
+                {petAvatar(appointment) ? (
+                  <img alt="" className="h-full w-full object-cover" src={petAvatar(appointment)} />
+                ) : (
+                  <Bone size={24} aria-hidden="true" />
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Mascota</span>
+                <span className="block truncate font-semibold text-ink">{petLabel(appointment)}</span>
+              </span>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -145,7 +175,17 @@ export function AppointmentDetailPage({ user }: AppointmentDetailPageProps) {
                 Completar
               </button>
             )}
-            {appointment.status !== 'cancelled' && appointment.status !== 'completed' && (
+            {isVeterinarian && appointment.mode === 'online' && appointment.status === 'accepted' && (
+              <button className="rounded-md bg-lavender px-3 py-2 text-sm font-semibold text-white" onClick={() => void handleStartTeleconsultation()} type="button">
+                Iniciar teleconsulta
+              </button>
+            )}
+            {isVeterinarian && appointment.mode === 'online' && appointment.status === 'in_progress' && (
+              <button className="rounded-md bg-mauve px-3 py-2 text-sm font-semibold text-white" onClick={() => void handleFinalizeTeleconsultation()} type="button">
+                Finalizar teleconsulta
+              </button>
+            )}
+            {appointment.status !== 'cancelled' && appointment.status !== 'completed' && appointment.status !== 'finalized' && (
               <button className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700" onClick={() => void handleAction('cancel')} type="button">
                 Cancelar
               </button>
@@ -161,6 +201,24 @@ export function AppointmentDetailPage({ user }: AppointmentDetailPageProps) {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
         <div className="space-y-4">
+          {appointment.mode === 'online' && appointment.teleconsulta_link && (
+            <section className="rounded-md border border-blush bg-white p-5 shadow-soft">
+              <div className="mb-3 flex items-center gap-2">
+                <Video className="text-lavender" size={20} aria-hidden="true" />
+                <h2 className="font-semibold text-ink">Teleconsulta</h2>
+              </div>
+              <p className="text-sm text-slate-600">
+                La sala usa un enlace privado asociado a esta cita.
+              </p>
+              <Link
+                className="mt-4 inline-flex items-center gap-2 rounded-md bg-lavender px-4 py-2 text-sm font-semibold text-white hover:bg-lavender/90"
+                to={`/teleconsulta/${appointment.teleconsulta_link}`}
+              >
+                <Video size={17} aria-hidden="true" />
+                Entrar a la consulta
+              </Link>
+            </section>
+          )}
           <section className="rounded-md border border-slate-200 bg-white p-5 shadow-soft">
             <div className="mb-3 flex items-center gap-2">
               <MessageCircle className="text-teal" size={20} aria-hidden="true" />
@@ -220,7 +278,7 @@ export function AppointmentDetailPage({ user }: AppointmentDetailPageProps) {
               </label>
             )}
 
-            {appointment.status === 'accepted' && !appointment.messaging_enabled && isClient && (
+            {(appointment.status === 'accepted' || appointment.status === 'in_progress') && !appointment.messaging_enabled && isClient && (
               <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
                 <p className="font-semibold text-ink">Mensajes con el veterinario</p>
                 <p className="mt-1">
@@ -230,7 +288,7 @@ export function AppointmentDetailPage({ user }: AppointmentDetailPageProps) {
               </div>
             )}
 
-            {appointment.status === 'accepted' && (
+            {(appointment.status === 'accepted' || appointment.status === 'in_progress') && (
               <div className="mt-4">
                 <ChatPanel
                   appointmentId={appointment.id}

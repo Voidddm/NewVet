@@ -6,6 +6,7 @@ import { AppointmentsPage } from './pages/Appointments/AppointmentsPage';
 import { CheckAppointmentPage } from './pages/CheckAppointment/CheckAppointmentPage';
 import { ProfilesPage } from './pages/Profiles/ProfilesPage';
 import { ReserveAppointmentPage } from './pages/ReserveAppointment/ReserveAppointmentPage';
+import { TeleconsultationPage } from './pages/Teleconsultation/TeleconsultationPage';
 import { useAuth } from './hooks/useAuth';
 
 export default function App() {
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/profiles" element={<ProfilesPage user={auth.user} onUserUpdated={auth.reloadUser} />} />
         <Route path="/reserve" element={<ReserveAppointmentPage user={auth.user} />} />
         <Route path="/check-appointment" element={<CheckAppointmentPage user={auth.user} />} />
+        <Route path="/teleconsulta/:uuid" element={<TeleconsultationPage user={auth.user} />} />
         <Route path="/cancel-appointment" element={<Navigate replace to="/check-appointment" />} />
         <Route path="/change-appointment" element={<Navigate replace to="/check-appointment" />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -45,4 +47,3 @@ export default function App() {
     </AppShell>
   );
 }
-

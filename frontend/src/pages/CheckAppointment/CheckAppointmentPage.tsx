@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Filter, RotateCcw } from 'lucide-react';
+import { CalendarClock, Filter, RotateCcw, XCircle } from 'lucide-react';
 import { AppointmentListRow } from '../../components/appointments/AppointmentListRow';
 import {
   getAppointments,
   getServices,
-  patchAppointment,
+  rescheduleAppointment,
   updateAppointmentStatus,
 } from '../../services/api';
 import type { Appointment, AppointmentListParams, AppointmentStatus, User } from '../../types';
@@ -16,6 +16,8 @@ interface CheckAppointmentPageProps {
 const ALL_STATUSES: AppointmentStatus[] = [
   'pending',
   'accepted',
+  'in_progress',
+  'finalized',
   'cancelled',
   'rejected',
   'completed',
@@ -24,6 +26,8 @@ const ALL_STATUSES: AppointmentStatus[] = [
 const STATUS_LABEL: Record<AppointmentStatus, string> = {
   pending: 'Pendiente',
   accepted: 'Aceptada',
+  in_progress: 'En curso',
+  finalized: 'Finalizada',
   cancelled: 'Cancelada',
   rejected: 'Rechazada',
   completed: 'Completada',
@@ -40,6 +44,7 @@ export function CheckAppointmentPage({ user }: CheckAppointmentPageProps) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [statusFilters, setStatusFilters] = useState<AppointmentStatus[]>([]);
+  const [typeFilter, setTypeFilter] = useState('');
   const [search, setSearch] = useState('');
   const [ordering, setOrdering] = useState('-date');
 
@@ -55,6 +60,7 @@ export function CheckAppointmentPage({ user }: CheckAppointmentPageProps) {
     if (statusFilters.length > 0) {
       p.status = statusFilters.join(',');
     }
+    if (typeFilter) p.tipo = typeFilter;
     if (dateMode === 'day' && day) {
       p.date = day;
     } else if (dateMode === 'range') {
@@ -62,7 +68,7 @@ export function CheckAppointmentPage({ user }: CheckAppointmentPageProps) {
       if (dateTo) p.date_to = dateTo;
     }
     return p;
-  }, [ordering, search, statusFilters, dateMode, day, dateFrom, dateTo]);
+  }, [ordering, search, statusFilters, typeFilter, dateMode, day, dateFrom, dateTo]);
 
   const load = useCallback(async () => {
     if (user.role !== 'client' && user.role !== 'veterinarian') {
@@ -105,6 +111,7 @@ export function CheckAppointmentPage({ user }: CheckAppointmentPageProps) {
     setDateFrom('');
     setDateTo('');
     setStatusFilters([]);
+    setTypeFilter('');
     setSearch('');
     setOrdering('-date');
   }
@@ -142,6 +149,11 @@ export function CheckAppointmentPage({ user }: CheckAppointmentPageProps) {
     ];
   }
 
+  const pendingCount = appointments.filter((appointment) => appointment.status === 'pending').length;
+  const actionableCount = appointments.filter((appointment) =>
+    appointment.status === 'pending' || appointment.status === 'accepted',
+  ).length;
+
   async function confirmCancel() {
     if (cancelId === null) return;
     setActionBusy(true);
@@ -168,7 +180,7 @@ export function CheckAppointmentPage({ user }: CheckAppointmentPageProps) {
     setActionBusy(true);
     setError(null);
     try {
-      await patchAppointment(rescheduleTarget.id, {
+      await rescheduleAppointment(rescheduleTarget.id, {
         date: rescheduleDate,
         time: rescheduleTime.length === 5 ? `${rescheduleTime}:00` : rescheduleTime,
       });
@@ -192,21 +204,31 @@ export function CheckAppointmentPage({ user }: CheckAppointmentPageProps) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-soft">
+      <section className="rounded-md border border-blush bg-white p-5 shadow-soft">
         <h1 className="text-2xl font-semibold text-ink">Consulta de hora</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Listado completo de tus citas con filtros y acciones. Coherente con el bloque &quot;Ultimas citas&quot; del inicio.
+          Revisa tus citas, cambia una hora o anula una atencion pendiente desde el mismo listado.
         </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-md border border-coral/60 bg-coral/25 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink">Pendientes</p>
+            <p className="mt-1 text-2xl font-semibold text-ink">{pendingCount}</p>
+          </div>
+          <div className="rounded-md border border-lavender/30 bg-white px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-lavender">Con acciones</p>
+            <p className="mt-1 text-2xl font-semibold text-ink">{actionableCount}</p>
+          </div>
+        </div>
       </section>
 
-      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-soft">
+      <section className="rounded-md border border-blush bg-white p-5 shadow-soft">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <Filter className="text-teal" size={20} aria-hidden="true" />
           <h2 className="text-lg font-semibold text-ink">Filtros</h2>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div>
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div className="rounded-md border border-blush/70 bg-mist/50 p-4">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Fecha</p>
             <div className="flex flex-wrap gap-3">
               <label className="flex items-center gap-2 text-sm">
@@ -264,7 +286,7 @@ export function CheckAppointmentPage({ user }: CheckAppointmentPageProps) {
             )}
           </div>
 
-          <div>
+          <div className="rounded-md border border-blush/70 bg-mist/50 p-4">
             <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
               Buscar (nombre, mascota o notas)
             </label>
@@ -275,51 +297,62 @@ export function CheckAppointmentPage({ user }: CheckAppointmentPageProps) {
               type="search"
               value={search}
             />
+            <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Tipo
+              <select
+                className="mt-2 h-10 w-full max-w-md rounded-md border border-slate-300 px-3 text-sm normal-case tracking-normal"
+                onChange={(e) => setTypeFilter(e.target.value)}
+                value={typeFilter}
+              >
+                <option value="">Todas</option>
+                <option value="teleconsulta">Teleconsulta</option>
+                <option value="presencial">Presencial</option>
+              </select>
+            </label>
           </div>
-        </div>
-
-        <div className="mt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Estado</p>
-          <div className="flex flex-wrap gap-3">
-            {ALL_STATUSES.map((st) => (
-              <label className="flex items-center gap-2 text-sm" key={st}>
-                <input
-                  checked={statusFilters.includes(st)}
-                  onChange={() => toggleStatus(st)}
-                  type="checkbox"
-                />
-                {STATUS_LABEL[st]}
-              </label>
-            ))}
-          </div>
-          <p className="mt-2 text-xs text-slate-500">Sin ninguno marcado se muestran todos los estados.</p>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-end gap-4">
-          <label className="block">
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Ordenar por
-            </span>
-            <select
-              className="h-10 rounded-md border border-slate-300 px-3 text-sm"
-              onChange={(e) => setOrdering(e.target.value)}
-              value={ordering}
-            >
-              {orderingOptions().map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
+          <div className="rounded-md border border-blush/70 bg-mist/50 p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Estado</p>
+            <div className="flex flex-wrap gap-3">
+              {ALL_STATUSES.map((st) => (
+                <label className="flex items-center gap-2 text-sm" key={st}>
+                  <input
+                    checked={statusFilters.includes(st)}
+                    onChange={() => toggleStatus(st)}
+                    type="checkbox"
+                  />
+                  {STATUS_LABEL[st]}
+                </label>
               ))}
-            </select>
-          </label>
-          <button
-            className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            onClick={() => resetFilters()}
-            type="button"
-          >
-            <RotateCcw size={16} aria-hidden="true" />
-            Limpiar filtros
-          </button>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Sin ninguno marcado se muestran todos los estados.</p>
+          </div>
+
+          <div className="rounded-md border border-blush/70 bg-mist/50 p-4">
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Ordenar por
+              </span>
+              <select
+                className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
+                onChange={(e) => setOrdering(e.target.value)}
+                value={ordering}
+              >
+                {orderingOptions().map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="mt-4 inline-flex h-10 items-center gap-2 rounded-md border border-lavender/30 bg-white px-3 text-sm font-semibold text-lavender hover:bg-blush/40"
+              onClick={() => resetFilters()}
+              type="button"
+            >
+              <RotateCcw size={16} aria-hidden="true" />
+              Limpiar filtros
+            </button>
+          </div>
         </div>
       </section>
 
@@ -331,7 +364,7 @@ export function CheckAppointmentPage({ user }: CheckAppointmentPageProps) {
           <span className="text-sm text-slate-500">{appointments.length} resultado(s)</span>
         </div>
 
-        <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-soft">
+        <div className="overflow-hidden rounded-md border border-blush bg-white shadow-soft">
           {loading ? (
             <p className="p-5 text-sm text-slate-500">Cargando citas</p>
           ) : appointments.length === 0 ? (
@@ -361,7 +394,10 @@ export function CheckAppointmentPage({ user }: CheckAppointmentPageProps) {
       {cancelId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-md border border-slate-200 bg-white p-5 shadow-lg" role="dialog">
-            <h3 className="text-lg font-semibold text-ink">Anular cita</h3>
+            <div className="flex items-center gap-2">
+              <XCircle className="text-rose-600" size={20} aria-hidden="true" />
+              <h3 className="text-lg font-semibold text-ink">Anular cita</h3>
+            </div>
             <p className="mt-2 text-sm text-slate-600">
               La cita pasara a estado cancelada. Esta accion queda registrada.
             </p>
@@ -390,7 +426,10 @@ export function CheckAppointmentPage({ user }: CheckAppointmentPageProps) {
       {rescheduleTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-md border border-slate-200 bg-white p-5 shadow-lg" role="dialog">
-            <h3 className="text-lg font-semibold text-ink">Cambiar hora</h3>
+            <div className="flex items-center gap-2">
+              <CalendarClock className="text-teal" size={20} aria-hidden="true" />
+              <h3 className="text-lg font-semibold text-ink">Cambiar hora</h3>
+            </div>
             <p className="mt-2 text-sm text-slate-600">Elige nueva fecha y hora para la cita #{rescheduleTarget.id}.</p>
             <div className="mt-4 grid gap-3">
               <label className="block text-sm font-medium text-slate-700">

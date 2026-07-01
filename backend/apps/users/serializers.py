@@ -8,7 +8,18 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'name', 'email', 'role', 'is_active', 'is_staff', 'created_at')
+        fields = (
+            'id',
+            'name',
+            'email',
+            'phone',
+            'address',
+            'commune',
+            'role',
+            'is_active',
+            'is_staff',
+            'created_at',
+        )
         read_only_fields = ('id', 'email', 'role', 'is_active', 'is_staff', 'created_at')
 
     def validate_name(self, value):

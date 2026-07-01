@@ -2,13 +2,13 @@ import type { AppointmentStatus } from '../../types';
 import { trafficToneForStatus } from '../../utils/appointmentDisplay';
 
 const toneStyles: Record<'green' | 'yellow' | 'red', string> = {
-  green: 'bg-emerald-500 shadow-emerald-500/40',
-  yellow: 'bg-amber-400 shadow-amber-400/40',
-  red: 'bg-rose-500 shadow-rose-500/40',
+  green: 'bg-lavender shadow-lavender/40',
+  yellow: 'bg-coral shadow-coral/40',
+  red: 'bg-slate-400 shadow-slate-400/40',
 };
 
 const titles: Record<'green' | 'yellow' | 'red', string> = {
-  green: 'Estado favorable (aceptada o completada)',
+  green: 'Aceptada, en curso o finalizada',
   yellow: 'Pendiente de confirmacion',
   red: 'Cancelada o rechazada',
 };

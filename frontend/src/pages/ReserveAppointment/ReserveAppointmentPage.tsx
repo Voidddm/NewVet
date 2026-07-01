@@ -173,6 +173,7 @@ export function ReserveAppointmentPage({ user }: ReserveAppointmentPageProps) {
         mode,
         surgery_room: mode === 'surgery' ? surgeryRooms[0]?.id : undefined,
         pet_name: pet?.name ?? '',
+        pet_avatar_data_url: pet?.avatarDataUrl,
       });
       setPendingSlot(null);
       navigate(`/appointments/${appointment.id}`);

@@ -1,6 +1,13 @@
 export type UserRole = 'admin' | 'veterinarian' | 'client';
 
-export type AppointmentStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'completed';
+export type AppointmentStatus =
+  | 'pending'
+  | 'accepted'
+  | 'in_progress'
+  | 'finalized'
+  | 'rejected'
+  | 'cancelled'
+  | 'completed';
 
 export type AppointmentMode = 'online' | 'home' | 'surgery';
 
@@ -10,6 +17,9 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  phone: string;
+  address: string;
+  commune: string;
   role: UserRole;
   is_active: boolean;
   is_staff: boolean;
@@ -56,6 +66,7 @@ export interface Message {
 
 export interface Appointment {
   id: number;
+  tipo?: 'presencial' | 'teleconsulta';
   client: number;
   veterinarian: number;
   /** Presente en respuestas de listado y detalle cuando el backend lo incluye. */
@@ -63,6 +74,8 @@ export interface Appointment {
   veterinarian_name?: string;
   /** Nombre de mascota indicado al reservar o editado por el tutor. */
   pet_name?: string;
+  pet_avatar_data_url?: string;
+  teleconsulta_link?: string | null;
   service: number;
   date: string;
   time: string;
@@ -78,6 +91,8 @@ export interface Appointment {
   expires_at: string | null;
   cancelled_at: string | null;
   completed_at: string | null;
+  started_at: string | null;
+  finalized_at: string | null;
   /** En listados resumidos; en detalle vienen los archivos completos. */
   medical_files_count?: number;
   medical_files?: MedicalFile[];
@@ -93,6 +108,7 @@ export interface AppointmentCreatePayload {
   surgery_room?: number;
   referral_file?: File;
   pet_name?: string;
+  pet_avatar_data_url?: string;
 }
 
 /** Query params soportados por GET /appointments/client/ y /veterinarian/ */
@@ -101,6 +117,9 @@ export interface AppointmentListParams {
   date_from?: string;
   date_to?: string;
   status?: string;
+  tipo?: string;
+  type?: string;
+  mode?: string;
   search?: string;
   ordering?: string;
 }

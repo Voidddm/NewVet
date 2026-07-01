@@ -61,7 +61,12 @@ export async function getCurrentUser(): Promise<User> {
   return response.data;
 }
 
-export async function patchCurrentUser(payload: { name: string }): Promise<User> {
+export async function patchCurrentUser(payload: {
+  name?: string;
+  phone?: string;
+  address?: string;
+  commune?: string;
+}): Promise<User> {
   const response = await api.patch<User>('/users/me/', payload);
   return response.data;
 }
@@ -128,6 +133,9 @@ export async function createAppointment(payload: AppointmentCreatePayload): Prom
   if (payload.pet_name) {
     formData.append('pet_name', payload.pet_name);
   }
+  if (payload.pet_avatar_data_url) {
+    formData.append('pet_avatar_data_url', payload.pet_avatar_data_url);
+  }
 
   const response = await api.post<Appointment>('/appointments/', formData);
   return response.data;
@@ -141,6 +149,29 @@ export async function updateAppointmentStatus(
   return response.data;
 }
 
+export async function rescheduleAppointment(
+  id: number,
+  payload: { date: string; time: string },
+): Promise<Appointment> {
+  const response = await api.post<Appointment>(`/appointments/${id}/reschedule/`, payload);
+  return response.data;
+}
+
+export async function getTeleconsultation(link: string): Promise<Appointment> {
+  const response = await api.get<Appointment>(`/appointments/teleconsultation/${link}/`);
+  return response.data;
+}
+
+export async function startTeleconsultation(id: number): Promise<Appointment> {
+  const response = await api.post<Appointment>(`/appointments/${id}/start-teleconsultation/`);
+  return response.data;
+}
+
+export async function finalizeTeleconsultation(id: number): Promise<Appointment> {
+  const response = await api.post<Appointment>(`/appointments/${id}/finalize-teleconsultation/`);
+  return response.data;
+}
+
 export async function patchAppointment(
   id: number,
   payload: {
@@ -149,6 +180,8 @@ export async function patchAppointment(
     date?: string;
     time?: string;
     pet_name?: string;
+    pet_avatar_data_url?: string;
+    status?: string;
   },
 ): Promise<Appointment> {
   const response = await api.patch<Appointment>(`/appointments/${id}/`, payload);

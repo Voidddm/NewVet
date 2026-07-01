@@ -1,16 +1,20 @@
 import type { AppointmentStatus } from '../../types';
 
 const styles: Record<AppointmentStatus, string> = {
-  pending: 'bg-amber-50 text-amber-700 ring-amber-200',
-  accepted: 'bg-teal-50 text-teal-700 ring-teal-200',
-  rejected: 'bg-rose-50 text-rose-700 ring-rose-200',
+  pending: 'bg-coral/35 text-ink ring-coral',
+  accepted: 'bg-lavender/15 text-ink ring-lavender/40',
+  in_progress: 'bg-lavender text-white ring-lavender',
+  finalized: 'bg-white text-ink ring-mauve',
+  rejected: 'bg-slate-100 text-slate-600 ring-slate-200',
   cancelled: 'bg-slate-100 text-slate-600 ring-slate-200',
-  completed: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+  completed: 'bg-white text-ink ring-mauve',
 };
 
 const labels: Record<AppointmentStatus, string> = {
   pending: 'Pendiente',
   accepted: 'Aceptada',
+  in_progress: 'En curso',
+  finalized: 'Finalizada',
   rejected: 'Rechazada',
   cancelled: 'Cancelada',
   completed: 'Completada',

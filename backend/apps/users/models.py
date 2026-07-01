@@ -30,6 +30,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=255)
+    phone = models.CharField(max_length=30, blank=True, default='')
+    address = models.CharField(max_length=255, blank=True, default='')
+    commune = models.CharField(max_length=120, blank=True, default='')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
 
     is_active = models.BooleanField(default=True)

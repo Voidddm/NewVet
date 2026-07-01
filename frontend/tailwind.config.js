@@ -4,14 +4,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: '#172126',
-        mist: '#eef5f3',
-        teal: '#0f766e',
-        coral: '#d66a5f',
-        amber: '#d5943f',
+        ink: '#2f2935',
+        mist: '#fff4f5',
+        teal: '#9a91ac',
+        coral: '#ffb9c4',
+        amber: '#caa7bd',
+        blush: '#ffd3d4',
+        mauve: '#caa7bd',
+        lavender: '#9a91ac',
       },
       boxShadow: {
-        soft: '0 18px 60px rgba(23, 33, 38, 0.08)',
+        soft: '0 18px 60px rgba(154, 145, 172, 0.18)',
       },
     },
   },

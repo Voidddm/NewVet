@@ -28,9 +28,10 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        return Appointment.objects.filter(
+        qs = Appointment.objects.filter(
             Q(client=user) | Q(veterinarian=user)
         ).select_related('client', 'veterinarian', 'service', 'surgery_room')
+        return apply_appointment_list_filters(qs, self.request)
 
     def perform_create(self, serializer):
         try:
@@ -88,11 +89,18 @@ class AppointmentStatusView(APIView):
     def post(self, request, pk):
         appointment = get_object_or_404(Appointment, pk=pk)
 
-        if self.action in ['accept', 'reject', 'complete']:
+        if self.action in ['accept', 'reject', 'complete', 'start_teleconsulta', 'finalize_teleconsulta']:
             if appointment.veterinarian_id != request.user.id:
                 raise PermissionDenied('Solo el veterinario puede realizar esta accion.')
         elif request.user.id not in [appointment.client_id, appointment.veterinarian_id]:
             raise PermissionDenied('No tienes acceso a esta cita.')
+
+        if self.action in ['start_teleconsulta', 'finalize_teleconsulta'] and appointment.mode != Appointment.Mode.ONLINE:
+            raise ValidationError('Esta accion solo aplica a teleconsultas.')
+        if self.action == 'start_teleconsulta' and appointment.status != Appointment.Status.ACCEPTED:
+            raise ValidationError('La teleconsulta debe estar aceptada para iniciar.')
+        if self.action == 'finalize_teleconsulta' and appointment.status != Appointment.Status.IN_PROGRESS:
+            raise ValidationError('La teleconsulta debe estar en curso para finalizar.')
 
         getattr(appointment, self.action)()
         return Response(AppointmentSerializer(appointment).data, status=status.HTTP_200_OK)
@@ -112,6 +120,59 @@ class AppointmentCancelView(AppointmentStatusView):
 
 class AppointmentCompleteView(AppointmentStatusView):
     action = 'complete'
+
+
+class AppointmentStartTeleconsultationView(AppointmentStatusView):
+    action = 'start_teleconsulta'
+
+
+class AppointmentFinalizeTeleconsultationView(AppointmentStatusView):
+    action = 'finalize_teleconsulta'
+
+
+class AppointmentRescheduleView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        appointment = get_object_or_404(Appointment, pk=pk)
+        if request.user.id not in [appointment.client_id, appointment.veterinarian_id]:
+            raise PermissionDenied('No tienes acceso a esta cita.')
+        if appointment.status not in [Appointment.Status.PENDING, Appointment.Status.ACCEPTED]:
+            raise ValidationError('Solo se pueden reprogramar citas pendientes o aceptadas.')
+
+        payload = {}
+        if 'date' in request.data:
+            payload['date'] = request.data.get('date')
+        if 'time' in request.data:
+            payload['time'] = request.data.get('time')
+        if not payload:
+            raise ValidationError('Debes enviar fecha u hora para reprogramar.')
+        serializer = AppointmentSerializer(
+            appointment,
+            data=payload,
+            partial=True,
+            context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.save()
+        except IntegrityError as exc:
+            raise ValidationError('Ese horario ya esta ocupado para el veterinario.') from exc
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class TeleconsultationByUuidView(generics.RetrieveAPIView):
+    serializer_class = AppointmentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_url_kwarg = 'teleconsulta_link'
+    lookup_field = 'teleconsulta_link'
+
+    def get_queryset(self):
+        user = self.request.user
+        return Appointment.objects.filter(
+            Q(client=user) | Q(veterinarian=user),
+            mode=Appointment.Mode.ONLINE,
+        ).select_related('client', 'veterinarian', 'service', 'surgery_room')
 
 
 class SurgeryApprovalView(APIView):
@@ -179,7 +240,7 @@ class MedicalFileListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         appointment = self._get_appointment()
-        if appointment.status not in [Appointment.Status.PENDING, Appointment.Status.ACCEPTED]:
+        if appointment.status not in [Appointment.Status.PENDING, Appointment.Status.ACCEPTED, Appointment.Status.IN_PROGRESS]:
             raise ValidationError('No se pueden agregar archivos a una cita cerrada.')
         serializer.save(appointment=appointment, uploaded_by=self.request.user)
 
