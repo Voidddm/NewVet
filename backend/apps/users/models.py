@@ -33,6 +33,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone = models.CharField(max_length=30, blank=True, default='')
     address = models.CharField(max_length=255, blank=True, default='')
     commune = models.CharField(max_length=120, blank=True, default='')
+    specialty = models.CharField(max_length=120, blank=True, default='')
+    professional_license = models.CharField(max_length=80, blank=True, default='')
+    professional_bio = models.TextField(blank=True, default='')
+    credential_status = models.CharField(max_length=30, blank=True, default='')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
 
     is_active = models.BooleanField(default=True)

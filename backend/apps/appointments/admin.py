@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Appointment, Availability, MedicalFile, Message, SurgeryRoom
+from .models import Appointment, Availability, ClinicalRecord, MedicalFile, Message, SurgeryRoom
 
 
 @admin.register(Appointment)
@@ -20,6 +20,13 @@ class AvailabilityAdmin(admin.ModelAdmin):
 class MedicalFileAdmin(admin.ModelAdmin):
     list_display = ['id', 'appointment', 'uploaded_by', 'file_type', 'created_at']
     list_filter = ['file_type', 'created_at']
+
+
+@admin.register(ClinicalRecord)
+class ClinicalRecordAdmin(admin.ModelAdmin):
+    list_display = ['id', 'appointment', 'created_by', 'status', 'weight_kg', 'created_at', 'closed_at']
+    list_filter = ['status', 'created_at']
+    search_fields = ['appointment__pet_name', 'diagnosis', 'anamnesis', 'created_by__email']
 
 
 @admin.register(Message)

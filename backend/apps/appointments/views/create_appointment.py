@@ -6,11 +6,12 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..models import Appointment, MedicalFile, Message, SurgeryRoom
+from ..models import Appointment, ClinicalRecord, MedicalFile, Message, SurgeryRoom
 from ..serializers import (
     AppointmentCreateSerializer,
     AppointmentSerializer,
     AppointmentSummarySerializer,
+    ClinicalRecordSerializer,
     MedicalFileSerializer,
     MessageSerializer,
     SurgeryRoomSerializer,
@@ -73,7 +74,10 @@ class AppointmentDetailView(generics.RetrieveUpdateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        return Appointment.objects.filter(Q(client=user) | Q(veterinarian=user))
+        return Appointment.objects.filter(Q(client=user) | Q(veterinarian=user)).select_related(
+            'clinical_record',
+            'clinical_record__created_by',
+        )
 
     def perform_update(self, serializer):
         try:
@@ -158,6 +162,59 @@ class AppointmentRescheduleView(APIView):
             serializer.save()
         except IntegrityError as exc:
             raise ValidationError('Ese horario ya esta ocupado para el veterinario.') from exc
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AppointmentClinicalRecordView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_appointment(self, request, pk):
+        appointment = get_object_or_404(
+            Appointment.objects.select_related('clinical_record', 'clinical_record__created_by'),
+            pk=pk,
+        )
+        if request.user.id not in [appointment.client_id, appointment.veterinarian_id]:
+            raise PermissionDenied('No tienes acceso a esta cita.')
+        return appointment
+
+    def get(self, request, pk):
+        appointment = self.get_appointment(request, pk)
+        record = getattr(appointment, 'clinical_record', None)
+        if record is None:
+            return Response(None, status=status.HTTP_200_OK)
+        if request.user.id == appointment.client_id and not record.is_closed:
+            raise PermissionDenied('La ficha clinica aun no esta disponible para el tutor.')
+        return Response(ClinicalRecordSerializer(record).data, status=status.HTTP_200_OK)
+
+    def post(self, request, pk):
+        appointment = self.get_appointment(request, pk)
+        if request.user.role != 'veterinarian' or appointment.veterinarian_id != request.user.id:
+            raise PermissionDenied('Solo el medico veterinario de la cita puede registrar la ficha.')
+        if hasattr(appointment, 'clinical_record'):
+            raise ValidationError('Esta cita ya tiene una ficha clinica.')
+        serializer = ClinicalRecordSerializer(
+            data=request.data,
+            context={'request': request, 'appointment': appointment},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def patch(self, request, pk):
+        appointment = self.get_appointment(request, pk)
+        if request.user.role != 'veterinarian' or appointment.veterinarian_id != request.user.id:
+            raise PermissionDenied('Solo el medico veterinario de la cita puede editar la ficha.')
+        record = getattr(appointment, 'clinical_record', None)
+        if record is None:
+            raise ValidationError('Esta cita aun no tiene una ficha clinica.')
+        serializer = ClinicalRecordSerializer(
+            record,
+            data=request.data,
+            partial=True,
+            context={'request': request, 'appointment': appointment},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

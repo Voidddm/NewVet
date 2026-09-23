@@ -2,6 +2,7 @@ from .available_slots import AvailableSlotsView
 from .create_appointment import (
     AppointmentAcceptView,
     AppointmentCancelView,
+    AppointmentClinicalRecordView,
     AppointmentCompleteView,
     AppointmentCreateView,
     AppointmentDetailView,

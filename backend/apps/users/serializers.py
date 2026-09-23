@@ -15,12 +15,16 @@ class UserSerializer(serializers.ModelSerializer):
             'phone',
             'address',
             'commune',
+            'specialty',
+            'professional_license',
+            'professional_bio',
+            'credential_status',
             'role',
             'is_active',
             'is_staff',
             'created_at',
         )
-        read_only_fields = ('id', 'email', 'role', 'is_active', 'is_staff', 'created_at')
+        read_only_fields = ('id', 'email', 'role', 'is_active', 'is_staff', 'credential_status', 'created_at')
 
     def validate_name(self, value):
         if not value or not str(value).strip():

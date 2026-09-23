@@ -61,6 +61,9 @@ export function ProfilesPage({ user, onUserUpdated }: ProfilesPageProps) {
   const [phone, setPhone] = useState(user.phone ?? '');
   const [address, setAddress] = useState(user.address ?? '');
   const [commune, setCommune] = useState(user.commune ?? '');
+  const [specialty, setSpecialty] = useState(user.specialty ?? '');
+  const [professionalLicense, setProfessionalLicense] = useState(user.professional_license ?? '');
+  const [professionalBio, setProfessionalBio] = useState(user.professional_bio ?? '');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
 
@@ -80,7 +83,18 @@ export function ProfilesPage({ user, onUserUpdated }: ProfilesPageProps) {
     setPhone(user.phone ?? '');
     setAddress(user.address ?? '');
     setCommune(user.commune ?? '');
-  }, [user.address, user.commune, user.name, user.phone]);
+    setSpecialty(user.specialty ?? '');
+    setProfessionalLicense(user.professional_license ?? '');
+    setProfessionalBio(user.professional_bio ?? '');
+  }, [
+    user.address,
+    user.commune,
+    user.name,
+    user.phone,
+    user.professional_bio,
+    user.professional_license,
+    user.specialty,
+  ]);
 
   async function handleSaveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -92,6 +106,9 @@ export function ProfilesPage({ user, onUserUpdated }: ProfilesPageProps) {
         phone: phone.trim(),
         address: address.trim(),
         commune: commune.trim(),
+        specialty: specialty.trim(),
+        professional_license: professionalLicense.trim(),
+        professional_bio: professionalBio.trim(),
       });
       await onUserUpdated();
     } catch {
@@ -178,14 +195,14 @@ export function ProfilesPage({ user, onUserUpdated }: ProfilesPageProps) {
 
   if (user.role !== 'client') {
     return (
-      <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
+      <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
         <section className="rounded-md border border-white bg-white p-5 shadow-soft">
           <div className="mb-4 flex items-center gap-2">
             <UserRound className="text-teal" size={22} aria-hidden="true" />
             <h1 className="text-xl font-semibold text-ink">Tu perfil</h1>
           </div>
-          <p className="text-sm text-slate-600">Actualiza como te muestra la aplicacion.</p>
-          <form className="mt-5 space-y-4" onSubmit={(e) => void handleSaveProfile(e)}>
+          <p className="text-sm text-slate-600">Actualiza tus datos profesionales visibles en la plataforma.</p>
+          <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={(e) => void handleSaveProfile(e)}>
             <label className="block text-sm font-medium text-slate-700">
               Nombre visible
               <input
@@ -195,9 +212,62 @@ export function ProfilesPage({ user, onUserUpdated }: ProfilesPageProps) {
                 value={name}
               />
             </label>
-            {profileError && <p className="text-sm text-rose-700">{profileError}</p>}
+            <label className="block text-sm font-medium text-slate-700">
+              Telefono
+              <input
+                className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3"
+                onChange={(e) => setPhone(e.target.value)}
+                value={phone}
+              />
+            </label>
+            {user.role === 'veterinarian' && (
+              <>
+                <label className="block text-sm font-medium text-slate-700">
+                  Especialidad
+                  <select
+                    className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3"
+                    onChange={(e) => setSpecialty(e.target.value)}
+                    value={specialty}
+                  >
+                    <option value="">Selecciona especialidad</option>
+                    <option value="Medicina general">Medicina general</option>
+                    <option value="Dermatologia">Dermatologia</option>
+                    <option value="Odontologia veterinaria">Odontologia veterinaria</option>
+                    <option value="Oncologia">Oncologia</option>
+                    <option value="Cirugia menor">Cirugia menor</option>
+                    <option value="Exoticos">Exoticos</option>
+                  </select>
+                </label>
+                <label className="block text-sm font-medium text-slate-700">
+                  Registro profesional
+                  <input
+                    className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3"
+                    onChange={(e) => setProfessionalLicense(e.target.value)}
+                    placeholder="Ej: CMV-12345"
+                    value={professionalLicense}
+                  />
+                </label>
+                <label className="block text-sm font-medium text-slate-700 md:col-span-2">
+                  Perfil profesional
+                  <textarea
+                    className="mt-2 min-h-[110px] w-full rounded-md border border-slate-300 px-3 py-2"
+                    onChange={(e) => setProfessionalBio(e.target.value)}
+                    value={professionalBio}
+                  />
+                </label>
+                <div className="rounded-md border border-blush bg-mist/60 p-3 text-sm text-slate-600 md:col-span-2">
+                  Estado de credenciales:{' '}
+                  <span className="font-semibold text-ink">
+                    {user.credential_status === 'approved'
+                      ? 'Aprobadas'
+                      : user.credential_status || 'Pendiente de revision'}
+                  </span>
+                </div>
+              </>
+            )}
+            {profileError && <p className="text-sm text-rose-700 md:col-span-2">{profileError}</p>}
             <button
-              className="rounded-md bg-teal px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+              className="w-fit rounded-md bg-teal px-4 py-2 text-sm font-semibold text-white hover:bg-teal/90 disabled:opacity-50"
               disabled={profileSaving}
               type="submit"
             >

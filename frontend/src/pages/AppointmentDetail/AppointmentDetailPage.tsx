@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Bone, Check, MessageCircle, ShieldCheck, Video, X } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { ChatPanel } from '../../components/Chat/ChatPanel';
+import { ClinicalRecordPanel } from '../../components/ClinicalRecord/ClinicalRecordPanel';
 import { FileUploadPanel } from '../../components/FileUpload/FileUploadPanel';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import {
@@ -13,6 +14,7 @@ import {
   updateAppointmentStatus,
 } from '../../services/api';
 import type { Appointment, User } from '../../types';
+import type { ClinicalRecord } from '../../types';
 import { petAvatar, petLabel } from '../../utils/appointmentDisplay';
 import { formatDate, modeLabel } from '../../utils/format';
 
@@ -94,6 +96,10 @@ export function AppointmentDetailPage({ user }: AppointmentDetailPageProps) {
     }
   }
 
+  function handleClinicalRecordSaved(record: ClinicalRecord) {
+    setAppointment((current) => (current ? { ...current, clinical_record: record } : current));
+  }
+
   if (loading) {
     return <p className="rounded-md border border-slate-200 bg-white p-5 text-sm text-slate-500">Cargando cita</p>;
   }
@@ -104,7 +110,8 @@ export function AppointmentDetailPage({ user }: AppointmentDetailPageProps) {
 
   const isVeterinarian = appointment.veterinarian === user.id;
   const isClient = appointment.client === user.id;
-  const canUpload = appointment.status === 'pending' || appointment.status === 'accepted';
+  const canUpload =
+    appointment.status === 'pending' || appointment.status === 'accepted' || appointment.status === 'in_progress';
   const canEditCaseNotes =
     isClient && (appointment.status === 'pending' || appointment.status === 'accepted');
   const chatActive =
@@ -219,6 +226,11 @@ export function AppointmentDetailPage({ user }: AppointmentDetailPageProps) {
               </Link>
             </section>
           )}
+          <ClinicalRecordPanel
+            appointment={appointment}
+            currentUser={user}
+            onSaved={handleClinicalRecordSaved}
+          />
           <section className="rounded-md border border-slate-200 bg-white p-5 shadow-soft">
             <div className="mb-3 flex items-center gap-2">
               <MessageCircle className="text-teal" size={20} aria-hidden="true" />

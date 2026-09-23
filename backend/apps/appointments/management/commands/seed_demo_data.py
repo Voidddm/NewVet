@@ -7,7 +7,7 @@ from django.core.management.base import BaseCommand
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from apps.appointments.models import Appointment, Availability, MedicalFile, Message, SurgeryRoom
+from apps.appointments.models import Appointment, Availability, ClinicalRecord, MedicalFile, Message, SurgeryRoom
 from apps.services.models import Service
 from apps.users.models import User
 
@@ -52,6 +52,7 @@ class Command(BaseCommand):
                 ('tomas.garcia', 'Dr. Tomas Garcia'),
                 ('isidora.morales', 'Dra. Isidora Morales'),
             ])
+            admin = self.create_admin()
             services = self.create_services()
             surgery_rooms = self.create_surgery_rooms()
             self.create_availabilities(veterinarians)
@@ -63,9 +64,11 @@ class Command(BaseCommand):
                 total=options['appointments'],
             )
             self.create_panel_content(appointments)
+            self.create_clinical_records(appointments)
 
         self.stdout.write(self.style.SUCCESS('Demo data created successfully.'))
         self.stdout.write(f'Users: {len(clients)} clients, {len(veterinarians)} veterinarians')
+        self.stdout.write(f'Admin: {admin.email}')
         self.stdout.write(f'Services: {len(services)}')
         self.stdout.write(f'Surgery rooms: {len(surgery_rooms)}')
         self.stdout.write(f'Appointments: {len(appointments)}')
@@ -89,13 +92,31 @@ class Command(BaseCommand):
             email = f'{username}@{DEMO_DOMAIN}'
             user, created = User.objects.get_or_create(
                 email=email,
-                defaults={'name': name, 'role': role},
+                defaults={
+                    'name': name,
+                    'role': role,
+                    'specialty': 'Medicina general' if role == 'veterinarian' else '',
+                    'professional_license': f'CMV-{random.randint(10000, 99999)}' if role == 'veterinarian' else '',
+                    'professional_bio': 'Medico veterinario demo disponible para atenciones NewVet.' if role == 'veterinarian' else '',
+                    'credential_status': 'approved' if role == 'veterinarian' else '',
+                },
             )
             if created:
                 user.set_password(PASSWORD)
                 user.save(update_fields=['password'])
             users.append(user)
         return users
+
+    def create_admin(self):
+        email = f'admin@{DEMO_DOMAIN}'
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={'name': 'Admin NewVet', 'role': 'admin', 'is_staff': True, 'is_superuser': True},
+        )
+        if created:
+            user.set_password(PASSWORD)
+            user.save()
+        return user
 
     def create_services(self):
         service_specs = [
@@ -236,3 +257,29 @@ class Command(BaseCommand):
                         name=f'appointment-{appointment.id}-demo.pdf',
                     ),
                 )
+
+    def create_clinical_records(self, appointments):
+        ready = [
+            appointment for appointment in appointments
+            if appointment.status in [Appointment.Status.ACCEPTED, Appointment.Status.COMPLETED]
+        ][:6]
+        for appointment in ready:
+            ClinicalRecord.objects.get_or_create(
+                appointment=appointment,
+                defaults={
+                    'created_by': appointment.veterinarian,
+                    'status': ClinicalRecord.Status.CLOSED,
+                    'consultation_reason': 'Control general y revision de antecedentes.',
+                    'anamnesis': 'Tutor refiere apetito conservado, actividad normal y signos leves de molestia intermitente.',
+                    'clinical_exam': 'Paciente alerta, hidratado, sin hallazgos de urgencia al examen general.',
+                    'diagnosis': 'Cuadro compatible con condicion leve en seguimiento.',
+                    'weight_kg': '8.50',
+                    'temperature_c': '38.4',
+                    'heart_rate_bpm': 100,
+                    'respiratory_rate_rpm': 28,
+                    'mucous_membranes': 'Rosadas y humedas',
+                    'capillary_refill_time': '< 2 segundos',
+                    'prescription': 'Control en 7 dias. Mantener observacion y administrar indicaciones segun tolerancia.',
+                    'closed_at': timezone.now(),
+                },
+            )

@@ -20,6 +20,10 @@ export interface User {
   phone: string;
   address: string;
   commune: string;
+  specialty: string;
+  professional_license: string;
+  professional_bio: string;
+  credential_status: string;
   role: UserRole;
   is_active: boolean;
   is_staff: boolean;
@@ -97,6 +101,46 @@ export interface Appointment {
   medical_files_count?: number;
   medical_files?: MedicalFile[];
   messages?: Message[];
+  clinical_record?: ClinicalRecord | null;
+}
+
+export interface ClinicalRecord {
+  id: string;
+  appointment: number;
+  created_by: number;
+  created_by_name: string;
+  status: 'draft' | 'closed';
+  consultation_reason: string;
+  anamnesis: string;
+  clinical_exam: string;
+  diagnosis: string;
+  weight_kg: string;
+  temperature_c: string | null;
+  heart_rate_bpm: number | null;
+  respiratory_rate_rpm: number | null;
+  mucous_membranes: string;
+  capillary_refill_time: string;
+  prescription: string;
+  attachment: string | null;
+  attachment_url: string | null;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+}
+
+export interface ClinicalRecordPayload {
+  consultation_reason: string;
+  anamnesis: string;
+  clinical_exam: string;
+  diagnosis: string;
+  weight_kg: string;
+  temperature_c?: string;
+  heart_rate_bpm?: string;
+  respiratory_rate_rpm?: string;
+  mucous_membranes: string;
+  capillary_refill_time: string;
+  prescription: string;
+  close?: boolean;
 }
 
 export interface AppointmentCreatePayload {

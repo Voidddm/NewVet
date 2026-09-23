@@ -4,6 +4,8 @@ import type {
   AppointmentCreatePayload,
   AppointmentListParams,
   AuthTokens,
+  ClinicalRecord,
+  ClinicalRecordPayload,
   MedicalFile,
   Message,
   Service,
@@ -66,6 +68,9 @@ export async function patchCurrentUser(payload: {
   phone?: string;
   address?: string;
   commune?: string;
+  specialty?: string;
+  professional_license?: string;
+  professional_bio?: string;
 }): Promise<User> {
   const response = await api.patch<User>('/users/me/', payload);
   return response.data;
@@ -207,5 +212,16 @@ export async function uploadMedicalFile(
   formData.append('file_type', payload.file_type);
   formData.append('description', payload.description);
   const response = await api.post<MedicalFile>(`/appointments/${appointmentId}/files/`, formData);
+  return response.data;
+}
+
+export async function saveClinicalRecord(
+  appointmentId: number,
+  payload: ClinicalRecordPayload,
+  exists: boolean,
+): Promise<ClinicalRecord> {
+  const response = exists
+    ? await api.patch<ClinicalRecord>(`/appointments/${appointmentId}/clinical-record/`, payload)
+    : await api.post<ClinicalRecord>(`/appointments/${appointmentId}/clinical-record/`, payload);
   return response.data;
 }

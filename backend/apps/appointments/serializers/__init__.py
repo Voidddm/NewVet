@@ -1,6 +1,7 @@
 from rest_framework import serializers
+from django.utils import timezone
 
-from apps.appointments.models import Appointment, MedicalFile, Message, SurgeryRoom
+from apps.appointments.models import Appointment, ClinicalRecord, MedicalFile, Message, SurgeryRoom
 
 
 class SurgeryRoomSerializer(serializers.ModelSerializer):
@@ -35,9 +36,95 @@ class MessageSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'appointment', 'sender', 'created_at', 'read_at']
 
 
+class ClinicalRecordSerializer(serializers.ModelSerializer):
+    created_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    created_by_name = serializers.CharField(source='created_by.name', read_only=True)
+    attachment_url = serializers.FileField(source='attachment', read_only=True)
+    close = serializers.BooleanField(write_only=True, required=False, default=False)
+
+    class Meta:
+        model = ClinicalRecord
+        fields = [
+            'id',
+            'appointment',
+            'created_by',
+            'created_by_name',
+            'status',
+            'consultation_reason',
+            'anamnesis',
+            'clinical_exam',
+            'diagnosis',
+            'weight_kg',
+            'temperature_c',
+            'heart_rate_bpm',
+            'respiratory_rate_rpm',
+            'mucous_membranes',
+            'capillary_refill_time',
+            'prescription',
+            'attachment',
+            'attachment_url',
+            'created_at',
+            'updated_at',
+            'closed_at',
+            'close',
+        ]
+        read_only_fields = [
+            'id',
+            'appointment',
+            'created_by',
+            'created_by_name',
+            'status',
+            'attachment_url',
+            'created_at',
+            'updated_at',
+            'closed_at',
+        ]
+
+    def validate(self, data):
+        request = self.context['request']
+        appointment = self.context.get('appointment') or getattr(self.instance, 'appointment', None)
+        if request.user.role != 'veterinarian':
+            raise serializers.ValidationError('Solo el medico veterinario puede editar la ficha clinica.')
+        if appointment and appointment.veterinarian_id != request.user.id:
+            raise serializers.ValidationError('No tienes acceso a esta ficha clinica.')
+        if self.instance and self.instance.is_closed:
+            raise serializers.ValidationError('La ficha clinica ya esta cerrada e inmutable.')
+
+        required = ['anamnesis', 'diagnosis', 'weight_kg']
+        for field in required:
+            value = data.get(field, getattr(self.instance, field, None))
+            if value in (None, ''):
+                raise serializers.ValidationError({field: 'Campo clinico obligatorio.'})
+        return data
+
+    def create(self, validated_data):
+        close = validated_data.pop('close', False)
+        record = ClinicalRecord.objects.create(
+            appointment=self.context['appointment'],
+            created_by=self.context['request'].user,
+            **validated_data,
+        )
+        if close:
+            record.status = ClinicalRecord.Status.CLOSED
+            record.closed_at = timezone.now()
+            record.save(update_fields=['status', 'closed_at', 'updated_at'])
+        return record
+
+    def update(self, instance, validated_data):
+        close = validated_data.pop('close', False)
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        if close:
+            instance.status = ClinicalRecord.Status.CLOSED
+            instance.closed_at = timezone.now()
+        instance.save()
+        return instance
+
+
 class AppointmentSerializer(serializers.ModelSerializer):
     medical_files = MedicalFileSerializer(many=True, read_only=True)
     messages = MessageSerializer(many=True, read_only=True)
+    clinical_record = ClinicalRecordSerializer(read_only=True)
     client_name = serializers.CharField(source='client.name', read_only=True)
     veterinarian_name = serializers.CharField(source='veterinarian.name', read_only=True)
     tipo = serializers.SerializerMethodField()
@@ -73,6 +160,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'finalized_at',
             'medical_files',
             'messages',
+            'clinical_record',
         ]
         read_only_fields = [
             'id',
@@ -90,6 +178,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'finalized_at',
             'medical_files',
             'messages',
+            'clinical_record',
         ]
 
     def get_tipo(self, obj):
